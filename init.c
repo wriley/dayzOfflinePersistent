@@ -1,40 +1,20 @@
 /*
-    Inspired by:
-        /u/knastv - https://www.reddit.com/r/dayz/comments/8ftcs2/063_persistent_singleplayer_mod_update_10_save/
-        Arkensor - https://github.com/Arkensor/DayZCommunityOfflineMode
+    Original init.c by Bohemia Interactive
+    
+    Modified for rudimentary character save by wriley aka Kerbo
+    
+    Changes inspired by:
+        /u/knastv
+          - https://www.reddit.com/r/dayz/comments/8ftcs2/063_persistent_singleplayer_mod_update_10_save/
+          - https://github.com/knastv/DayZPersistentSP
+        Arkensor
+          - https://github.com/Arkensor/DayZCommunityOfflineMode
 */
 
-/*  === Characters ===
-    SurvivorM_Mirek
-    SurvivorM_Boris
-    SurvivorM_Cyril
-    SurvivorM_Denis
-    SurvivorM_Elias
-    SurvivorM_Francis
-    SurvivorM_Guo
-    SurvivorM_Hassan
-    SurvivorM_Indar
-    SurvivorM_Jose
-    SurvivorM_Kaito
-    SurvivorM_Lewis
-    SurvivorM_Manua
-    SurvivorM_Niki
-    SurvivorM_Oliver
-    SurvivorM_Peter
-    SurvivorM_Quinn
-    SurvivorM_Rolf
-    SurvivorM_Seth
-    SurvivorM_Taiki
-    SurvivorF_Eva
-    SurvivorF_Frida
-    SurvivorF_Gabi
-    SurvivorF_Helga
-    SurvivorF_Irena
-    SurvivorF_Keiko
-    SurvivorF_Linda
-    SurvivorF_Maria
-    SurvivorF_Naomi
-*/
+ref CustomPluginLifespan lifespanp;
+ref PlayerBase oPlayer;
+
+string playerSaveFile = "$profile:\\playerSave.txt";
 
 class CustomMission: MissionGameplay
 {
@@ -43,9 +23,7 @@ class CustomMission: MissionGameplay
     {
         super.OnMissionFinish();
         
-        PlayerBase player = PlayerBase.Cast( GetGame().GetPlayer() );
-		
-		if(player && !player.IsDamageDestroyed())
+		if(oPlayer && !oPlayer.IsDamageDestroyed())
 		{
 			if(savePlayer())
             {
@@ -56,14 +34,8 @@ class CustomMission: MissionGameplay
                 Print("ERROR: Unable to save player");
             }
 		} else {
-            FileHandle file = OpenFile("$profile:playerSave.txt", FileMode.WRITE);
-            if ( file == 0 )
-            {
-                Print("Failed to open $profile:playerSave.txt for writing");
-            } else {
-                Print("Removing character data");
-                FPrintln(file, "");
-                CloseFile(file);
+            if(FileExist(playerSaveFile)) {
+                DeleteFile(playerSaveFile);
             }
         }
     }
@@ -71,26 +43,63 @@ class CustomMission: MissionGameplay
     override void CreateLogoutMenu(UIMenuPanel parent)
 	{
         super.CreateLogoutMenu(parent);
-		PlayerBase player = PlayerBase.Cast( GetGame().GetPlayer() );
 		
-		if (!player || player.IsDamageDestroyed())
+		if (!oPlayer || oPlayer.IsDamageDestroyed())
 		{
-            FileHandle file = OpenFile("$profile:playerSave.txt", FileMode.WRITE);
-            if ( file == 0 )
-            {
-                Print("Failed to open $profile:playerSave.txt for writing");
-            } else {
-                Print("Removing character data");
-                FPrintln(file, "");
-                CloseFile(file);
+            if(FileExist(playerSaveFile)) {
+                DeleteFile(playerSaveFile);
             }
 		}
 	}
+    
+    override void OnUpdate(float timeslice)
+    {
+        super.OnUpdate(timeslice);
+        
+        oPlayer.StatUpdateByTime("playtime");
+        lifespanp.UpdateLifespan( oPlayer, true );
+  		lifespanp.UpdateBloodyHandsVisibility(oPlayer, oPlayer.HasBloodyHands());
+    }
 };
 
 Mission CreateCustomMission(string path)
 {
     return new CustomMission();
+}
+
+class CustomPluginLifespan: PluginLifespan
+{
+    override protected void UpdateLifespanLevel( PlayerBase player, float player_beard, bool force_update = false )
+	{
+		if ( m_PlayerCurrentLevel.Contains(player) )
+		{
+			LifespanLevel current_level = m_PlayerCurrentLevel.Get( player );
+
+			if ( player_beard > current_level.GetThreshold() || force_update )
+			{
+				LifespanLevel next_level = GetLifespanLevel( player.GetPlayerClass(), player_beard );
+
+				if ( next_level != NULL )
+				{
+					SetPlayerLifespanLevel( player, next_level );
+					m_PlayerCurrentLevel.Set( player, next_level );
+				}
+			}
+		}
+		else
+		{
+			if ( m_LifespanLevels.Contains( player.GetPlayerClass() ) )
+			{
+				LifespanLevel level = GetLifespanLevel( player.GetPlayerClass(), player_beard );
+
+				if ( level != NULL )
+				{
+					SetPlayerLifespanLevel( player, level );
+					m_PlayerCurrentLevel.Set( player, level );
+				}
+			}
+		}
+	}
 }
 
 void SetRandomHealth(EntityAI itm)
@@ -101,6 +110,10 @@ void SetRandomHealth(EntityAI itm)
 
 void main()
 {
+    g_Game.SetMissionState( DayZGame.MISSION_STATE_GAME );
+    SetDispatcher(new DispatcherCaller);
+    lifespanp = new CustomPluginLifespan();
+    
     if(!loadPlayer())
     {
         vector player_pos;
@@ -120,51 +133,51 @@ void main()
         Print(player_pos);	
         Entity playerEnt = GetGame().CreatePlayer( NULL, GetGame().CreateRandomPlayer(), player_pos, 0, "NONE");
 
-        PlayerBase player = (PlayerBase) playerEnt;
+        oPlayer = (PlayerBase) playerEnt;
 
-        EntityAI item = player.GetInventory().CreateInInventory(tops.GetRandomElement());
-        EntityAI item2 = player.GetInventory().CreateInInventory(pants.GetRandomElement());
-        EntityAI item3 = player.GetInventory().CreateInInventory(shoes.GetRandomElement());
+        EntityAI item = oPlayer.GetInventory().CreateInInventory(tops.GetRandomElement());
+        EntityAI item2 = oPlayer.GetInventory().CreateInInventory(pants.GetRandomElement());
+        EntityAI item3 = oPlayer.GetInventory().CreateInInventory(shoes.GetRandomElement());
         
         EntityAI itemEnt;
         EntityAI itemIn;
         ItemBase itemBs;
         int rndQnt;
         
-        itemEnt = player.GetInventory().CreateInInventory("Rag");
+        itemEnt = oPlayer.GetInventory().CreateInInventory("Rag");
         itemBs = ItemBase.Cast(itemEnt);
         itemBs.SetQuantity(4);
         SetRandomHealth(itemEnt);
 
-        itemEnt = player.GetInventory().CreateInInventory("Mag_IJ70_8Rnd");
+        itemEnt = oPlayer.GetInventory().CreateInInventory("Mag_IJ70_8Rnd");
         SetRandomHealth(itemEnt);
 
-        itemEnt = player.GetInventory().CreateInInventory("HuntingKnife");
+        itemEnt = oPlayer.GetInventory().CreateInInventory("HuntingKnife");
         SetRandomHealth(itemEnt);
 
-        itemEnt = player.GetInventory().CreateInInventory("MakarovIJ70");
+        itemEnt = oPlayer.GetInventory().CreateInInventory("MakarovIJ70");
         SetRandomHealth(itemEnt);
-        player.SetQuickBarEntityShortcut(itemEnt, 2);
+        oPlayer.SetQuickBarEntityShortcut(itemEnt, 2);
 
         itemIn = itemEnt.GetInventory().CreateAttachment("Mag_IJ70_8Rnd");
         SetRandomHealth(itemIn);
 
-        itemEnt = player.GetInventory().CreateInInventory("Izh18");
+        itemEnt = oPlayer.GetInventory().CreateInInventory("Izh18");
         SetRandomHealth(itemEnt);
-        player.SetQuickBarEntityShortcut(itemEnt, 0);
+        oPlayer.SetQuickBarEntityShortcut(itemEnt, 0);
 
         itemBs = ItemBase.Cast(itemEnt);
         itemBs.SetQuantity(rndQnt);
 
-        itemEnt = player.GetInventory().CreateInInventory("Ammo_762x39");
+        itemEnt = oPlayer.GetInventory().CreateInInventory("Ammo_762x39");
         rndQnt = Math.RandomInt(5,20);
         SetRandomHealth(itemEnt);
-        player.SetQuickBarEntityShortcut(itemEnt, 1);
+        oPlayer.SetQuickBarEntityShortcut(itemEnt, 1);
 
-        itemEnt = player.GetInventory().CreateInInventory("Ammo_380");
+        itemEnt = oPlayer.GetInventory().CreateInInventory("Ammo_380");
         SetRandomHealth(itemEnt);
         
-        GetGame().SelectPlayer(NULL, player);
+        GetGame().SelectPlayer(NULL, oPlayer);
     }
     
 	//EKONOMIKA
@@ -178,25 +191,25 @@ void main()
 
 	weather.GetOvercast().SetLimits( 0.0 , 1.0 );
 	weather.GetRain().SetLimits( 0.0 , 1.0 );
-	weather.GetFog().SetLimits( 0.0 , 1.0 );
+	weather.GetFog().SetLimits( 0.0 , 0.2 );
 
-	weather.GetOvercast().SetForecastChangeLimits( 0.0, 1.0 );
-	weather.GetRain().SetForecastChangeLimits( 0.0, 1.0 );
-	weather.GetFog().SetForecastChangeLimits( 0.0, 1.0 );
+	weather.GetOvercast().SetForecastChangeLimits( 0.0, 0.2 );
+	weather.GetRain().SetForecastChangeLimits( 0.0, 0.1 );
+	weather.GetFog().SetForecastChangeLimits( 0.0, 0.1 );
 
-	weather.GetOvercast().SetForecastTimeLimits( 3600 , 3600 );
-	weather.GetRain().SetForecastTimeLimits( 3600 , 3600 );
-	weather.GetFog().SetForecastTimeLimits( 3600 , 3600 );
+	weather.GetOvercast().SetForecastTimeLimits( 1800 , 1800 );
+	weather.GetRain().SetForecastTimeLimits( 600 , 600 );
+	weather.GetFog().SetForecastTimeLimits( 600 , 600 );
 
     // rain storm
 	//weather.GetOvercast().Set( 1.0, 0, 0);
 	//weather.GetRain().Set( 1.0, 0, 0);
-	//weather.GetFog().Set( 0.5, 0, 0);
-    
-    // clear
-    weather.GetOvercast().Set( 0.0, 0, 0);
-	weather.GetRain().Set( 0.0, 0, 0);
-	weather.GetFog().Set( 0.0, 0, 0);
+	//weather.GetFog().Set( 0.2, 0, 0);
+
+    // default
+	weather.GetOvercast().Set( Math.RandomFloatInclusive(0.0, 0.3), 0, 0);
+	weather.GetRain().Set( Math.RandomFloatInclusive(0.0, 0.2), 0, 0);
+	weather.GetFog().Set( Math.RandomFloatInclusive(0.0, 0.1), 0, 0);
 	
 	weather.SetWindMaximumSpeed(5);
 	weather.SetWindFunctionParams(0.2, 1.0, 50);
@@ -212,16 +225,15 @@ string getItemText(string txt) {
 }
 
 float getItemQuantity(string txt) {
-    Print("getItemQuantity(" + txt + ")");
+    //Print("getItemQuantity(" + txt + ")");
     int i = txt.IndexOf("[");
     if(i != -1) {
         //Print("getItemQuantity() i=" + i);
         int j = txt.IndexOf("]");
         if(j != -1) {
             //Print("getItemQuantity() j=" + j);
-            int len = j - i - 1;
-            string qty = txt.Substring(i + 1, len);
-            Print("getItemQuantity() qty=" + qty);
+            string qty = txt.Substring(i + 1, j - i - 1);
+            //Print("getItemQuantity() qty=" + qty);
             return qty.ToFloat();
         } else {
             return -1;
@@ -234,21 +246,22 @@ float getItemQuantity(string txt) {
 bool loadPlayer()
 {
     // TODO error checking for reading the lines
-    FileHandle file = OpenFile("$profile:playerSave.txt", FileMode.READ);
+    
+    FileHandle file = OpenFile(playerSaveFile, FileMode.READ);
     if ( file == 0 )
     {
-        Print("Failed to open $profile:playerSave.txt for reading");
+        Print("Failed to open " + playerSaveFile + " for reading");
         return false;
     }
     string line = "";
 
     // character model, position, direction
     FGets(file,  line);
+    string charModel = line;
     if(line.Length() == 0 || line == "")
     {
         return false;
     }
-    string charModel = line;
     
     FGets(file,  line);
     vector position = line.ToVector();
@@ -256,9 +269,9 @@ bool loadPlayer()
     FGets(file,  line);
     vector direction = line.ToVector();
     
-    PlayerBase _player = PlayerBase.Cast( GetGame().CreatePlayer( NULL, charModel, "0 0 0", 0, "NONE") );
-    _player.SetPosition( position );
-    _player.SetDirection( direction );
+    oPlayer = PlayerBase.Cast( GetGame().CreatePlayer( NULL, charModel, "0 0 0", 0, "NONE") );
+    oPlayer.SetPosition( position );
+    oPlayer.SetDirection( direction );
     
     // weather and date/time
     string overcast, rain, fog, wind;
@@ -292,8 +305,8 @@ bool loadPlayer()
     if(inHands != "EMPTY") {
         itemText = getItemText(inHands);
         itemQty = getItemQuantity(inHands);
-        handItem = ItemBase.Cast(_player.GetInventory().CreateInInventory(itemText));
-        _player.PredictiveTakeEntityToHands(handItem);
+        handItem = ItemBase.Cast(oPlayer.GetInventory().CreateInInventory(itemText));
+        oPlayer.PredictiveTakeEntityToHands(handItem);
         if(handItem == NULL) {
             Print("INVENTORY: " + itemText + " spawning item on ground");
             handItem = ItemBase.Cast(g_Game.CreateObject( itemText, position ));
@@ -301,7 +314,7 @@ bool loadPlayer()
                 if(itemQty > 0) {
                     Print("INVENTORY: " + itemText + " setting quantity to " + itemQty);
                     if(handItem.IsMagazine()) {
-                        // SetAmmoCount not implemented yet
+                        // SetAmmoCount not implemented yet?
                         //handItem.SetAmmoCount(itemQty);
                     } else {
                         handItem.SetQuantity(itemQty);
@@ -313,7 +326,7 @@ bool loadPlayer()
         } else {
             if(itemQty > 0) {
                 if(handItem.IsMagazine()) {
-                    // SetAmmoCount not implemented yet
+                    // SetAmmoCount not implemented yet?
                     //handItem.SetAmmoCount(itemQty);
                 } else {
                     handItem.SetQuantity(itemQty);
@@ -321,23 +334,20 @@ bool loadPlayer()
             }
         }
     }
-    
-    // float item.GetQuantity()
-    // item.SetQuantity(float)
-
+ 
     ItemBase item;
     for(int i = 0; i < inventoryItems.Count(); i++) {
         Print("INVENTORY: " + inventoryItems[i]);
         itemText = getItemText(inventoryItems[i]);
         itemQty = getItemQuantity(inventoryItems[i]);
-        item = ItemBase.Cast(_player.GetInventory().CreateInInventory(itemText));
+        item = ItemBase.Cast(oPlayer.GetInventory().CreateInInventory(itemText));
         if( item == NULL) {    
             Print("INVENTORY: " + itemText + " spawning item on ground");
             item = ItemBase.Cast(g_Game.CreateObject( itemText, position ));
             if(item != NULL) {
                 if(itemQty > 0) {
                     if(item.IsMagazine()) {
-                        // SetAmmoCount not implemented yet
+                        // SetAmmoCount not implemented yet?
                         //item.SetAmmoCount(itemQty);
                     } else {
                         item.SetQuantity(itemQty);
@@ -349,7 +359,7 @@ bool loadPlayer()
         } else {
             if(itemQty > 0) {
                 if(item.IsMagazine()) {
-                    // SetAmmoCount not implemented yet
+                    // SetAmmoCount not implemented yet?
                     //item.SetAmmoCount(itemQty);
                 } else {
                     item.SetQuantity(itemQty);
@@ -372,45 +382,44 @@ bool loadPlayer()
     FGets(file, stimepassed);
     GetGame().GetWorld().SetDate( sorigYear.ToInt(), sorigMonth.ToInt(), sorigDay.ToInt(), sorigHour.ToInt() + (stimepassed.ToInt() / (60*60)), sorigMinute.ToInt() + (stimepassed.ToInt() / 60) );
 
-    _player.SetHealth("","", shealth.ToFloat());
-    _player.SetHealth("GlobalHealth", "Blood", sblood.ToFloat());
-    _player.GetStatTemperature().Set(stemp.ToFloat());
-    _player.GetStatEnergy().Set(senergy.ToFloat());
-    _player.GetStatWater().Set(swater.ToFloat());
+    oPlayer.SetHealth("","", shealth.ToFloat());
+    oPlayer.SetHealth("GlobalHealth", "Blood", sblood.ToFloat());
+    oPlayer.GetStatTemperature().Set(stemp.ToFloat());
+    oPlayer.GetStatEnergy().Set(senergy.ToFloat());
+    oPlayer.GetStatWater().Set(swater.ToFloat());
     
-    _player.StatRegister("playtime");
-    _player.StatUpdate("playtime", splaytime.ToFloat());
-    _player.SetLastShavedSeconds(slastshave.ToFloat());
+    oPlayer.StatRegister("playtime");
+    oPlayer.StatUpdate("playtime", splaytime.ToFloat());
+    oPlayer.SetLastShavedSeconds(slastshave.ToFloat());
     if(sbloodyhands == "true") {
-        _player.SetBloodyHands(true);
+        oPlayer.SetBloodyHands(true);
     } else {
-        _player.SetBloodyHands(false);
+        oPlayer.SetBloodyHands(false);
     }
 
-    PluginLifespan lifespanp = PluginLifespan.Cast( GetPlugin( PluginLifespan ) );
-    lifespanp.UpdateLifespan( _player, true );
-    _player.SetSynchDirty();
+    lifespanp.UpdateLifespan( oPlayer, true );
+    oPlayer.SetSynchDirty();
     
     CloseFile(file);
-    GetGame().SelectPlayer( NULL, _player );
+    GetGame().SelectPlayer( NULL, oPlayer );
     return true;
 }
 
 bool savePlayer()
 {
-    FileHandle file = OpenFile("$profile:playerSave.txt", FileMode.WRITE);
+    FileHandle file = OpenFile(playerSaveFile, FileMode.WRITE);
     if ( file == 0 )
     {
-        Print("Failed to open $profile:playerSave.txt for writing");
+        Print("Failed to open " + playerSaveFile + " for writing");
         return false;
     }
     
-    PlayerBase _player = GetGame().GetPlayer();
+    oPlayer = GetGame().GetPlayer();
     
     // character model, position, direction
-    FPrintln(file, _player.GetType());
-    FPrintln(file, _player.GetPosition());
-    FPrintln(file, _player.GetDirection());
+    FPrintln(file, oPlayer.GetType());
+    FPrintln(file, oPlayer.GetPosition());
+    FPrintln(file, oPlayer.GetDirection());
     
     // weather and date/time
     Weather weather = g_Game.GetWeather();
@@ -434,9 +443,9 @@ bool savePlayer()
     // inventory
     array<EntityAI> itemsArray = new array<EntityAI>;
     ItemBase item;
-    _player.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, itemsArray);
+    oPlayer.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, itemsArray);
 
-    ItemBase inHands = _player.GetHumanInventory().GetEntityInHands();
+    ItemBase inHands = oPlayer.GetHumanInventory().GetEntityInHands();
     string itemLine = "";
     string itemText = "";
     float itemQty = 0.0;
@@ -481,14 +490,14 @@ bool savePlayer()
     }
     
     // health/etc
-    float health =  _player.GetHealth("", "");
-    float blood = _player.GetHealth("GlobalHealth", "Blood");
-    float temperature = _player.GetStatTemperature().Get();
-    float energy = _player.GetStatEnergy().Get();
-    float water = _player.GetStatWater().Get();
-    float playtime = _player.StatGet("playtime");
-    float beard = _player.GetLastShavedSeconds();
-    bool hasBloodyHands = _player.HasBloodyHands();
+    float health =  oPlayer.GetHealth("", "");
+    float blood = oPlayer.GetHealth("GlobalHealth", "Blood");
+    float temperature = oPlayer.GetStatTemperature().Get();
+    float energy = oPlayer.GetStatEnergy().Get();
+    float water = oPlayer.GetStatWater().Get();
+    float playtime = oPlayer.StatGet("playtime");
+    float beard = oPlayer.GetLastShavedSeconds();
+    bool hasBloodyHands = oPlayer.HasBloodyHands();
     float timepassed = weather.GetTime();
 
     FPrintln(file, health);
