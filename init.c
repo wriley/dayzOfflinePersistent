@@ -1,5 +1,5 @@
 /*
-    Inspired by these fine folks
+    Inspired by:
         /u/knastv - https://www.reddit.com/r/dayz/comments/8ftcs2/063_persistent_singleplayer_mod_update_10_save/
         Arkensor - https://github.com/Arkensor/DayZCommunityOfflineMode
 */
@@ -42,16 +42,50 @@ class CustomMission: MissionGameplay
     override void OnMissionFinish()
     {
         super.OnMissionFinish();
-
-        if(savePlayer())
-        {
-            Print("Player saved");
-        }
-        else
-        {
-            Print("ERROR: Unable to save player");
+        
+        PlayerBase player = PlayerBase.Cast( GetGame().GetPlayer() );
+		
+		if(player && !player.IsDamageDestroyed())
+		{
+			if(savePlayer())
+            {
+                Print("Player saved");
+            }
+            else
+            {
+                Print("ERROR: Unable to save player");
+            }
+		} else {
+            FileHandle file = OpenFile("$profile:playerSave.txt", FileMode.WRITE);
+            if ( file == 0 )
+            {
+                Print("Failed to open $profile:playerSave.txt for writing");
+            } else {
+                Print("Removing character data");
+                FPrintln(file, "");
+                CloseFile(file);
+            }
         }
     }
+    
+    override void CreateLogoutMenu(UIMenuPanel parent)
+	{
+        super.CreateLogoutMenu(parent);
+		PlayerBase player = PlayerBase.Cast( GetGame().GetPlayer() );
+		
+		if (!player || player.IsDamageDestroyed())
+		{
+            FileHandle file = OpenFile("$profile:playerSave.txt", FileMode.WRITE);
+            if ( file == 0 )
+            {
+                Print("Failed to open $profile:playerSave.txt for writing");
+            } else {
+                Print("Removing character data");
+                FPrintln(file, "");
+                CloseFile(file);
+            }
+		}
+	}
 };
 
 Mission CreateCustomMission(string path)
@@ -417,30 +451,6 @@ bool savePlayer()
             } else {
                 itemLine += ",";
             }
-            
-            int AttachmentsCount = item.GetInventory().AttachmentCount();
-            bool firstAtt = true;
-            for (int j = 0; j < AttachmentsCount; j++)
-            {
-                if(firstAtt) {
-                    firstAtt = false;
-                } else {
-                    itemLine += ",";
-                }
-                ItemBase att = item.GetInventory().GetAttachmentFromIndex(j);
-                itemText = att.GetType();
-                itemQty = att.GetQuantity();
-                itemQtyMax = att.GetQuantityMax();
-                if(itemQty == itemQtyMax) {
-                    itemLine += itemText;
-                } else {
-                    itemLine += itemText + "[" + itemQty.ToString() + "]";
-                }
-            }
-            if(AttachmentsCount > 0) {
-                itemLine += ",";
-            }
-            
             itemText = item.GetType();
             itemQty = item.GetQuantity();
             itemQtyMax = item.GetQuantityMax();
@@ -454,31 +464,8 @@ bool savePlayer()
     FPrintln(file, itemLine);
     
     if(inHands) {
-        AttachmentsCount = inHands.GetInventory().AttachmentCount();
         itemLine = "";
         firstItem = true;
-        
-        for (j = 0; j < AttachmentsCount; j++)
-        {
-            if(firstItem) {
-                firstItem = false;
-            } else {
-                itemLine += ",";
-            }
-            att = inHands.GetInventory().GetAttachmentFromIndex(j);
-            itemText = att.GetType();
-            itemQty = att.GetQuantity();
-            itemQtyMax = att.GetQuantityMax();
-            if(itemQty == itemQtyMax) {
-                itemLine += itemText;
-            } else {
-                itemLine += itemText + "[" + itemQty.ToString() + "]";
-            }
-        }
-        if(AttachmentsCount > 0) {
-            itemLine += ",";
-        }
-            
         itemText = inHands.GetType();
         itemQty = inHands.GetQuantity();
         itemQtyMax = inHands.GetQuantityMax();
