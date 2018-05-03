@@ -16,6 +16,10 @@ ref PlayerBase oPlayer;
 
 string playerSaveFile = "$profile:\\playerSave.txt";
 
+// change this if you prefer one character instead of random
+// leave empty string "" for random character
+string preferredCharacter = "SurvivorM_Peter";
+
 class CustomMission: MissionGameplay
 {
     
@@ -130,8 +134,14 @@ void main()
         
 
         player_pos = positions.Get(index);
-        Print(player_pos);	
-        Entity playerEnt = GetGame().CreatePlayer( NULL, GetGame().CreateRandomPlayer(), player_pos, 0, "NONE");
+        Print(player_pos);
+        Entity playerEnt;
+        if(preferredCharacter.Length() > 0) {
+            //                 GetGame().CreatePlayer( NULL, charModel, "0 0 0", 0, "NONE")
+            playerEnt = GetGame().CreatePlayer( NULL, preferredCharacter, player_pos, 0, "NONE");
+        } else {
+            playerEnt = GetGame().CreatePlayer( NULL, GetGame().CreateRandomPlayer(), player_pos, 0, "NONE");
+        }
 
         oPlayer = (PlayerBase) playerEnt;
 
