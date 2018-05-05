@@ -6,7 +6,7 @@ This is a rudimentary system on a stress test build. Don't assume anything will 
 
 Instructions:
 
-1) backup Missions\dayzOfflinePersistent.ChernarusPlus\init.c
+1) backup Missions\dayzOffline.ChernarusPlus\init.c
 
 2) Replace with init.c from this repo
 
