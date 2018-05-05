@@ -18,7 +18,7 @@
 string preferredCharacter = "SurvivorM_Peter";
 
 // use minimum loadout (like 0.62) or stress test loadout
-bool minLoadout = true;
+bool minLoadout = false;
 
 // no changes below here
 
