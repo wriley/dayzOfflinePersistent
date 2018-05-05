@@ -15,7 +15,7 @@
 
 // change this if you prefer one character instead of random
 // leave empty string "" for random character
-string preferredCharacter = "SurvivorM_Peter";
+string preferredCharacter = "";
 
 // use minimum loadout (like 0.62) or stress test loadout
 bool minLoadout = false;
