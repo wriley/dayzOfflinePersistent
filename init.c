@@ -59,8 +59,7 @@ ref PlayerBase oPlayer;
 
 string playerSaveFile = "$profile:\\playerSave.txt";
 float timeElapsed = 0.0;
-float saveTime = 300000.0  // 5 min
-
+float saveTime = 120.0  // in seconds
 
 class CustomMission: MissionGameplay
 {
@@ -101,7 +100,7 @@ class CustomMission: MissionGameplay
     override void OnUpdate(float timeslice)
     {
         super.OnUpdate(timeslice);
-
+        
         timeElapsed += timeslice;
 
         if(timeElapsed >= saveTime) {

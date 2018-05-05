@@ -1,6 +1,6 @@
 # dayzOfflinePersistent
 
-Saves your character and gear plus enables beards (no shaving yet) for DayZ 0.63 stress test offline mode
+Saves your character and gear plus enables beards (shave with knife in hand) for DayZ 0.63 stress test offline mode
 
 This is a rudimentary system on a stress test build. Don't assume anything will work. Your milk will curdle, your car won't start, heck even your dog will probably suffer.
 
